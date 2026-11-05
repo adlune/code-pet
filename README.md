@@ -1,3 +1,5 @@
+<p align="center"><img src="attachments/sprite.png" alt="claude pet sprite" width="216"></p>
+
 # claude pet
 
 A simple desktop pet built using Electron. It notifies when the session stops, needs approval, background tasks, active sessions, etc.
