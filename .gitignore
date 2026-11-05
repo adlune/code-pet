@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+*.log
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
