@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { describeTool, summarize, lastAssistantText } = require('./events');
+const petIcon = require('./icon');
 
 const PORT = Number(process.env.CLAUDE_PET_PORT) || 47321;
 const WIN_W = 300;
@@ -79,11 +80,13 @@ function place(x, y) {
   if (key !== lastEdges) (lastEdges = key), send('edges', edges);
 }
 
-function createWindow() {
-  const { x, y } = homePosition();
+function createWindow(pos = homePosition()) {
+  const { x, y } = pos;
+  lastEdges = '';
   win = new BrowserWindow({
     x,
     y,
+    icon: makeIcon(4),
     width: WIN_W,
     height: WIN_H,
     transparent: true,
@@ -110,7 +113,27 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => {
     send('settings', settings);
     pushSessions();
+    const [px, py] = win.getPosition();
+    place(px, py); // sends the current screen edges to the fresh renderer
   });
+}
+
+// Re-assert always-on-top
+function keepOnTop(hard = false) {
+  if (!win || win.isDestroyed()) return;
+  if (hard) win.setAlwaysOnTop(false); // toggling forces Windows to re-apply HWND_TOPMOST
+  win.setAlwaysOnTop(true, 'floating');
+  win.moveTop();
+}
+
+// Tray → "Reload pet".
+function reloadPet() {
+  const old = win;
+  const pos = old && !old.isDestroyed() ? { x: old.getPosition()[0], y: old.getPosition()[1] } : homePosition();
+  clearInterval(dragTimer);
+  dragTimer = null;
+  createWindow(pos); // create first so the app never has zero windows
+  if (old && !old.isDestroyed()) old.destroy();
 }
 
 function send(channel, payload) {
@@ -175,33 +198,10 @@ ipcMain.on('show-menu', () => {
 });
 
 // ---------- tray ----------
-function makeIcon() {
-  // 16x16 mini pet drawn at 2x into a BGRA bitmap.
-  const G = 16;
-  const S = 2;
-  const N = G * S;
-  const buf = Buffer.alloc(N * N * 4);
-  const fill = (x, y, w, h, [r, g, b]) => {
-    for (let yy = y * S; yy < (y + h) * S; yy++)
-      for (let xx = x * S; xx < (x + w) * S; xx++) {
-        const i = (yy * N + xx) * 4;
-        buf[i] = b;
-        buf[i + 1] = g;
-        buf[i + 2] = r;
-        buf[i + 3] = 255;
-      }
-  };
-  const O = [0xd9, 0x77, 0x57];
-  const D = [0xb9, 0x58, 0x3c];
-  const K = [0x1f, 0x1a, 0x17];
-  fill(2, 4, 12, 8, O);
-  fill(2, 11, 12, 1, D);
-  fill(0, 7, 2, 2, O);
-  fill(14, 7, 2, 2, O);
-  fill(5, 6, 1, 2, K);
-  fill(10, 6, 1, 2, K);
-  for (const lx of [3, 5, 10, 12]) fill(lx, 12, 1, 2, O);
-  return nativeImage.createFromBitmap(buf, { width: N, height: N, scaleFactor: S });
+function makeIcon(scale = 2) {
+  // the 16x16 mini pet from icon.js, drawn at `scale`x (2 = crisp on high-DPI trays)
+  const { width, height, rgba } = petIcon.rgba(scale, true);
+  return nativeImage.createFromBitmap(rgba, { width, height, scaleFactor: scale });
 }
 
 function buildMenu() {
@@ -229,6 +229,7 @@ function buildMenu() {
     },
     { type: 'separator' },
     { label: 'Call pet home', click: () => (place(homePosition().x, homePosition().y), send('fall')) },
+    { label: 'Reload pet', click: reloadPet },
     { label: 'Clear sessions', click: () => (sessions.clear(), pushSessions()) },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
@@ -394,6 +395,12 @@ app.whenReady().then(() => {
 
   screen.on('display-metrics-changed', () => send('fall'));
   screen.on('display-removed', () => (place(homePosition().x, homePosition().y), send('fall')));
+
+  // stay on top across sleep, lock and display changes; a light check every few seconds catches the rest
+  for (const ev of ['resume', 'unlock-screen'])
+    powerMonitor.on(ev, () => [0, 1500, 5000].forEach((ms) => setTimeout(() => keepOnTop(true), ms)));
+  screen.on('display-metrics-changed', () => keepOnTop(true));
+  setInterval(() => dragTimer || keepOnTop(false), 5000);
 
   setInterval(() => {
     const now = Date.now();

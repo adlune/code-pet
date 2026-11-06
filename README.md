@@ -13,6 +13,14 @@ npm run install-hooks
 npm start
 ```
 
+## Run from shortcut
+
+```bash
+npm run shortcut
+```
+
+to remove: `npm run shortcut -- --remove`.
+
 ## Uninstall
 
 ```bash
