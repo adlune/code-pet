@@ -118,12 +118,11 @@ function createWindow(pos = homePosition()) {
   });
 }
 
-// Re-assert always-on-top
-function keepOnTop(hard = false) {
+// Re-apply always-on-top once
+function reassertTop() {
   if (!win || win.isDestroyed()) return;
-  if (hard) win.setAlwaysOnTop(false); // toggling forces Windows to re-apply HWND_TOPMOST
+  win.setAlwaysOnTop(false);
   win.setAlwaysOnTop(true, 'floating');
-  win.moveTop();
 }
 
 // Tray → "Reload pet".
@@ -396,11 +395,9 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', () => send('fall'));
   screen.on('display-removed', () => (place(homePosition().x, homePosition().y), send('fall')));
 
-  // stay on top across sleep, lock and display changes; a light check every few seconds catches the rest
-  for (const ev of ['resume', 'unlock-screen'])
-    powerMonitor.on(ev, () => [0, 1500, 5000].forEach((ms) => setTimeout(() => keepOnTop(true), ms)));
-  screen.on('display-metrics-changed', () => keepOnTop(true));
-  setInterval(() => dragTimer || keepOnTop(false), 5000);
+  // Windows can drop topmost windows during sleep: re-apply it once after waking (the taskbar has
+  // settled by then). If it's still lost, the tray's "Reload pet" rebuilds the window.
+  powerMonitor.on('resume', () => setTimeout(reassertTop, 3000));
 
   setInterval(() => {
     const now = Date.now();
