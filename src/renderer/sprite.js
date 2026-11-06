@@ -1,12 +1,12 @@
 // Pixel Claude, drawn from rectangles on an 18x13 grid. Tweak shapes, colors and SCALE here.
 //
-// FRONT VIEW                                THREE-QUARTER VIEW (typing; mirrored when facing left)
-//   ..................                        ..................
-//   ...BBBBBBBBBBBB...  body x 3-14, y 3-10   ...sBBBBBBBBBB....  body x 3-13, far side s = x 3
-//   ...BB.BBBB.BBB....  eyes x 6 / 11         ...sBBBB.BB.g...#.  eyes x 8 / 11, face glow x 13
-//   .AABBBBBBBBBBBBAA.  arms x 1-2 / 15-16    ..asBBBBBBBBg..F##  far arm a, screen edge F x 15, lid back x 16-17
-//   ...BBBBBBBBBBBB...                        ...sBBBBBBBBhHHF##  near hand H x 13-14, far hand h x 12
-//   ....L.L....L.L....  legs x 4,6,11,13      ....L.L..L.L.====.  deck x 13-16 (y 11), front edge x 12-17 (y 12)
+// FRONT VIEW                                LAPTOP VIEW (typing; mirrored to put the laptop on the right)
+//   ..................                        ...BBBBBBBBBBBB...  the pet sits 2 rows further back
+//   ...BBBBBBBBBBBB...  body x 3-14, y 3-10   ...BB.BBBB.BBB....  eyes look down at the screen
+//   ...BB.BBBB.BBB....  eyes x 6 / 11         .AABB.BBBB.BBBBAA.
+//   .AABBBBBBBBBBBBAA.  arms x 1-2 / 15-16    ...hhBBBBBBBBBBB..  far hand h taps over the lid's top edge
+//   ...BBBBBBBBBBBB...                        =========HHHsss...  lid back x 0-8 (y 8-12), near hand H on the deck
+//   ....L.L....L.L....  legs x 4,6,11,13      ===.#.===dd...L...  logo # on the lid, deck d angling away
 const Sprite = (() => {
   const SCALE = 4; // screen pixels per grid cell. 5 = a bit bigger, 3 = tiny.
   const GW = 18;
@@ -15,21 +15,26 @@ const Sprite = (() => {
   const COLORS = {
     body: '#D97757',
     shade: '#B9583C',
-    sidePlane: '#C6684B', // the far side of the body, visible in the three-quarter view
     eye: '#1F1A17',
-    glow: '#EDA287',
-    lid: '#B9B2A9',
-    lidEdge: '#DDD8D1',
-    screen: '#FBF4E8',
-    cursor: '#D97757',
-    base: '#8F877E',
-    deck: '#C9C2B9',
+    lid: '#2B2A2E', // back of the laptop lid
+    lidEdge: '#5E5B64', // its top edge (light enough to outline the laptop on dark desktops)
+    lidSide: '#4A4850', // its right side
+    logo: '#E6E0D6',
+    glow: '#E68D6C', // screen light on the face
+    glowSoft: '#E08264',
+    mug: '#EFE6D8',
+    mugShade: '#CDBFA9',
+    coffee: '#4B2F24',
+    steam: '#D9D0C6',
+    deck: '#6A6770', // keyboard deck
+    deckBack: '#57545D', // its far end, in shadow under the pet's hand
+    base: '#45434B', // deck's front edge
     glyph: '#D97757',
     alert: '#E5484D',
     zzz: '#8A7F74',
   };
   const SPIN = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'];
-  const LAPTOP_FRAMES = 5; // 0 = hidden, 1 = keyboard only, 2..5 = lid rising
+  const LAPTOP_FRAMES = 5; // 0 = hidden, 1 = closed on the ground, 2..5 = lid rising
 
   const width = GW * SCALE;
   const height = HEAD + GH * SCALE;
@@ -38,14 +43,13 @@ const Sprite = (() => {
    * opts: {
    *   oy: vertical body offset in px (negative = up)
    *   eyes: 'open' | 'closed' | 'wide' | 'happy'
-   *   look: [dx, dy] eye offset in grid cells (front view)
-   *   arms: [left, right] each 'down' | 'up' (front view; turned view uses the near arm)
+   *   look: [dx, dy] eye offset in grid cells
+   *   arms: [left, right] each 'down' | 'up'
    *   legs: 'stand' | 'walkA' | 'walkB'
    *   squash: 0 | 1 (breathing: body top drops one row)
-   *   turned: true = three-quarter view turned to the right (mirror the canvas to face left)
-   *   laptop: 0..LAPTOP_FRAMES (opening animation; turned view only)
+   *   turned: true = laptop view (mirror the canvas to put the laptop on the right)
+   *   laptop: 0..LAPTOP_FRAMES (opening animation; laptop view only)
    *   hands: [near, far] 0 = lifted, 1 = on the keys (only when the laptop is fully open)
-   *   screenRow: 0..3 which line of the screen the cursor is on
    *   glyph: { ch, color, size, dx, dy } drawn above the head
    * }
    */
@@ -57,17 +61,17 @@ const Sprite = (() => {
       ctx.fillRect(x * SCALE, HEAD + y * SCALE + offY, w * SCALE, h * SCALE);
     };
     ctx.clearRect(0, 0, width, height);
-    if (o.turned) drawTurned(o, px, top);
+    if (o.turned) drawLaptop(o, px, top);
     else drawFront(o, px, top);
 
     // status glyph (spinner / ! / zzz) above the head
     if (o.glyph) {
+      const gy = top - (o.turned ? lift(o) : 0);
       ctx.save();
       ctx.fillStyle = o.glyph.color || COLORS.glyph;
       ctx.font = `${o.glyph.bold ? '800' : '700'} ${o.glyph.size || Math.round(SCALE * 3.6)}px "Segoe UI Symbol", "Segoe UI", sans-serif`;
       ctx.textAlign = 'center';
-      const gx = o.turned ? 12.5 : 14.5;
-      ctx.fillText(o.glyph.ch, gx * SCALE + (o.glyph.dx || 0), HEAD + top * SCALE + oy - SCALE + (o.glyph.dy || 0));
+      ctx.fillText(o.glyph.ch, 14.5 * SCALE + (o.glyph.dx || 0), HEAD + gy * SCALE + oy - SCALE + (o.glyph.dy || 0));
       ctx.restore();
     }
   }
@@ -90,6 +94,7 @@ const Sprite = (() => {
       px(1, armY(la), 2, 2, COLORS.body);
       px(15, armY(ra), 2, 2, COLORS.body);
     }
+    if (o.underEyes) o.underEyes(); // e.g. the laptop's screen glow, so it never covers the eyes
 
     const [lx, ly] = o.look || [0, 0];
     const ey = top + 2;
@@ -116,70 +121,82 @@ const Sprite = (() => {
     }
   }
 
-  // Three-quarter view: turned partly toward a laptop at its front-right. Both eyes still show
-  // (shifted toward the laptop), the far side of the body is a darker strip, and the laptop is
-  // seen at an angle: deck, back of the lid, and a lit sliver of screen facing the pet.
-  function drawTurned(o, px, top) {
+  // Laptop view: the pet still faces you and sits back a little behind a laptop on its front-left.
+  // You see the back of the lid (with a small logo), the keyboard deck angling away on its right,
+  // one hand on the deck and the other arm bobbing down behind the lid's top edge. The screen
+  // casts a faint glow on the pet's lower face. Optional coffee mug: on the ground, or in hand.
+  function lift(o) {
     const lp = o.laptop || 0;
-    const lidH = Math.max(0, Math.min(4, lp - 1)); // lid rows visible (rises from the hinge)
-    const typing = lidH === 4;
+    return lp >= 4 ? 2 : lp >= 2 ? 1 : 0; // rows the body moves up (= further back) as the lid opens
+  }
+
+  function drawLaptop(o, px, top) {
+    const L = COLORS;
+    const lidH = Math.min(5, o.laptop || 0); // lid rows, rising from the ground
+    const typing = lidH === 5;
+    const up = lift(o);
     const [hn, hf] = o.hands || [1, 1];
-    const up = (a) => a === 'up';
-    const [farArm, nearArm] = o.arms || ['down', 'down'];
+    const sipping = typing && o.mug === 2;
 
-    // far arm peeks out behind the body, in shade
-    px(2, up(farArm) ? top - 1 : 6, 1, 2, COLORS.shade);
-
-    legs(o, px, [4, 6, 9, 11]);
-    px(3, top, 11, 11 - top, COLORS.body);
-    px(3, top, 1, 10 - top, COLORS.sidePlane); // far side of the body
-    px(3, 10, 11, 1, COLORS.shade);
-    if (typing) px(13, top + 1, 1, 4, COLORS.glow); // screen light on the face
-
-    // both eyes, shifted toward the laptop and a little closer together
-    const ey = top + 2;
-    const K = COLORS.eye;
-    switch (o.eyes) {
-      case 'closed':
-        px(7, ey + 1, 2, 1, K);
-        px(10, ey + 1, 2, 1, K);
-        break;
-      case 'wide':
-        px(7, ey, 2, 2, K);
-        px(10, ey, 2, 2, K);
-        break;
-      case 'happy':
-        for (const cx of [8, 11]) {
-          px(cx - 1, ey + 1, 1, 1, K);
-          px(cx, ey, 1, 1, K);
-          px(cx + 1, ey + 1, 1, 1, K);
-        }
-        break;
-      default:
-        px(8, ey, 1, 2, K);
-        px(11, ey, 1, 2, K);
-    }
-
-    // laptop on the ground, at an angle; it doesn't bob with the body
-    if (lp > 0) {
-      px(13, 11, 5, 1, COLORS.deck, 0); // keyboard deck (top surface)
-      px(12, 12, 5, 1, COLORS.base, 0); // front edge, shifted toward the viewer
-      if (lidH > 0) {
-        px(17, 10 - lidH, 1, lidH + 1, COLORS.lid, 0); // lid back, outer edge (a row taller: slant)
-        px(16, 11 - lidH, 1, lidH, COLORS.lid, 0); // lid back
-        px(17, 10 - lidH, 1, 1, COLORS.lidEdge, 0); // top corner highlight
-      }
-      if (lidH > 1) {
-        px(15, 11 - lidH, 1, lidH - 1, COLORS.screen, 0); // lit screen edge, facing the pet
-        if (typing) px(15, 7 + ((o.screenRow || 0) % 3), 1, 1, COLORS.cursor, 0);
-      }
-    }
+    // the pet itself: the normal front view, moved back, eyes down on the screen while typing
+    const back = (x, y, w, h, c) => px(x, y - up, w, h, c);
+    const [lx] = o.look || [0, 0];
+    const eyes = sipping && o.eyes === 'open' ? 'happy' : o.eyes;
+    const glow = () => {
+      // faint light from the screen on the lower face, just above the lid
+      back(3, 9, 6, 1, L.glow);
+      back(4, 8, 4, 1, L.glowSoft);
+    };
+    drawFront({ ...o, eyes, look: [lx, typing && !sipping ? 1 : 0], arms: typing ? 'none' : o.arms, underEyes: typing ? glow : null }, back, top);
 
     if (typing) {
-      px(15, 10 + hf, 1, 1, COLORS.shade, 0); // far hand, reaching past the near one
-      px(13, 10 + hn, 2, 1, COLORS.body, 0); // near hand
-    } else {
-      px(14, up(nearArm) ? top - 1 : 6, 1, 2, COLORS.body); // near arm nub
+      // far arm bobs down toward the keys, stopping just above the lid's edge
+      back(1, 7 + hf, 2, 2, L.body);
+      if (!sipping) back(15, 6, 2, 2, L.body); // near arm (its hand is on the deck)
+    }
+
+    // laptop on the ground; it doesn't bob with the body
+    const lidTop = 13 - lidH;
+    if (lidH >= 3) {
+      // keyboard deck, running back toward the pet on the right of the lid
+      px(9, 10, 3, 1, L.deckBack, 0);
+      px(9, 11, 4, 1, L.deck, 0);
+      px(9, 12, 3, 1, L.base, 0);
+    }
+    px(0, lidTop, 9, lidH, L.lid, 0); // back of the lid
+    px(0, lidTop, 9, 1, L.lidEdge, 0); // top edge
+    if (lidH > 1) px(8, lidTop + 1, 1, lidH - 1, L.lidSide, 0); // right side
+    if (lidH === 5) {
+      // a small logo on the lid, in half-size pixels so it stays delicate
+      for (const [x, y] of [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]]) px(3.75 + x / 2, 9.75 + y / 2, 0.5, 0.5, L.logo, 0);
+    }
+
+    if (typing && !sipping) {
+      // near hand on the keyboard deck, lifting a row between keystrokes
+      px(9, 9 + hn, 3, 1, L.shade, 0);
+      px(9, 8 + hn, 3, 1, L.body, 0);
+    }
+
+    // coffee: 1 = on the ground beside the laptop, 2 = held up in the near hand for a sip
+    if (lidH >= 3 && o.mug === 1) mug(px, 15, 10, 0, o.steam, true);
+    if (sipping) {
+      mug(px, 16, 4 - up, undefined, o.steam, false); // held out at the side
+      back(15, 7, 1, 2, L.body); // the hand holding it (covers the handle)
+    }
+  }
+
+  // 2x3 mug with a little steam; offY 0 = on the ground (doesn't bob)
+  function mug(px, x, y, offY, steam = 0, handle = true) {
+    const L = COLORS;
+    px(x, y, 2, 1, L.coffee, offY);
+    px(x, y + 1, 2, 2, L.mug, offY);
+    px(x, y + 2, 2, 1, L.mugShade, offY);
+    if (handle) px(x + 2, y + 1, 1, 1, L.mug, offY);
+    // two wisps rising and swaying, in half-size pixels
+    for (const k of [0, 3]) {
+      const p = (Math.floor(steam / 5) + k) % 6;
+      const sway = [0, 0.5, 0.5, 0, -0.5, -0.5][p];
+      px(x + 0.5 + sway, y - 0.5 - p * 0.5, 0.5, 0.5, L.steam, offY);
     }
   }
 

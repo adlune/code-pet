@@ -41,9 +41,9 @@ let walkTicks = 0;
 let vx = 0;
 let vy = 0;
 let landTicks = 0;
-let laptop = 0; // laptop animation frame; > 0 means the pet is turned three-quarters, typing
+let laptop = 0; // laptop animation frame; > 0 means the pet is sitting behind its laptop, typing
 let laptopHoldUntil = 0;
-let facing = 1; // turned view direction: 1 = right, -1 = left (mirrored)
+let facing = 1; // laptop side: 1 = laptop on the left, -1 = mirrored, laptop on the right
 
 // drag velocity, measured from cursor movement (px per tick)
 let dragAccX = 0;
@@ -204,8 +204,8 @@ function updateFx(m) {
   if (action === 'drag' || action === 'fall') laptop = 0;
   else if (t % 2 === 0 && laptop !== want) laptop += Math.sign(want - laptop);
   if (before === 0 && laptop > 0) {
-    // turn to the side to work: face away from a nearby screen edge, otherwise either way
-    facing = edges.right > 0 ? -1 : edges.left > 0 ? 1 : Math.random() < 0.5 ? -1 : 1;
+    // pull the laptop out on the side away from a nearby screen edge (1 = left, -1 = mirrored to the right)
+    facing = edges.left > 0 ? -1 : edges.right > 0 ? 1 : Math.random() < 0.5 ? -1 : 1;
     stretch.v = 0.88; // little hop as it turns
   } else if (before > 0 && laptop === 0 && action === 'idle') {
     stretch.v = 0.9; // and as it turns back to face you
@@ -224,7 +224,8 @@ function updateFx(m) {
 
 // ---------- pose for this frame ----------
 function pose(m) {
-  const o = { oy: 0, eyes: 'open', look: [0, 0], arms: ['down', 'down'], legs: 'stand', squash: 0, glyph: null, laptop, turned: laptop > 0 };
+  // with the laptop out, a coffee mug sits beside it (mug: 1 = on the ground, 2 = in hand)
+  const o = { oy: 0, eyes: 'open', look: [0, 0], arms: ['down', 'down'], legs: 'stand', squash: 0, glyph: null, laptop, turned: laptop > 0, mug: 1, steam: t };
   const step = (n) => Math.floor(t / n);
 
   if (action === 'drag') {
@@ -265,8 +266,8 @@ function pose(m) {
       // typing in bursts, with little pauses to read the screen
       const burst = step(18) % 5 !== 4;
       o.hands = burst ? (step(2) % 2 ? [0, 1] : [1, 0]) : [1, 1];
-      o.screenRow = step(burst ? 8 : 24);
       if (!burst) o.squash = 1; // leans back a little while reading
+      if (!burst && step(90) % 2) o.mug = 2; // every other pause: a sip of coffee
       o.glyph = { ch: Sprite.SPIN[step(3) % Sprite.SPIN.length] };
       break;
     }
@@ -319,7 +320,7 @@ function render(m) {
   ctx.rotate(tilt.v);
   ctx.translate(-cx, -cy);
   if (o.turned && facing < 0) {
-    ctx.translate(cx, 0); // mirror the turned view to face left
+    ctx.translate(cx, 0); // mirror the laptop view to put the laptop on the right
     ctx.scale(-1, 1);
     ctx.translate(-cx, 0);
   }

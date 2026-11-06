@@ -1,8 +1,8 @@
-<p align="center"><img src="attachments/sprite.png" alt="claude pet sprite" width="216"></p>
+<p align="center"><img src="attachments/pet.gif" alt="claude pet typing on its laptop, then hopping happily" width="250"></p>
 
-# claude pet
+# code-pet
 
-A simple desktop pet built using Electron. It notifies when the session stops, needs approval, background tasks, active sessions, etc.
+A simple desktop pet built using Electron. It notifies when the session stops, needs approval, background tasks, active sessions, etc. Built for Claude Code.
 
 
 ## Setup
@@ -28,3 +28,7 @@ npm run uninstall-hooks
 ```
 
 removes only the pet's hooks.
+
+## About
+
+Made by Adrian Lara ([contact@adrianlara.dev](mailto:contact@adrianlara.dev)). Released under the [MIT License](LICENSE).
