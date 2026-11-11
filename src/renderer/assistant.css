@@ -1,0 +1,180 @@
+/* The optional local AI assistant: its prompt bar (ask.html), answers and Allow/Deny in the bubble. */
+
+/* the local model's prompt bar and answers: plain white, no outline (a soft shadow keeps them
+   readable on light backgrounds) */
+#ask .chip,
+#bubble.answer .chip {
+  background: #4a4540; /* dark grey tag for the local model; Claude's tags stay orange */
+}
+#ask,
+#bubble.answer {
+  border: none;
+  box-shadow: 0 2px 10px rgba(43, 39, 34, 0.28);
+}
+#bubble.answer {
+  padding: 9px 12px;
+}
+#bubble.answer::after {
+  border: none;
+  bottom: -5px;
+}
+#bubble.answer #bubble-text {
+  display: block;
+  margin-top: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-line; /* keep the model's line breaks (poems, steps) */
+  user-select: text;
+  cursor: text;
+}
+#bubble.answer.error #bubble-text,
+#bubble.answer.status #bubble-text {
+  color: var(--muted);
+}
+#bubble.answer.status #bubble-text {
+  font-style: italic;
+}
+
+/* Allow/Deny for the local model's actions, and the Undo button after an edit */
+#bubble-actions:empty {
+  display: none;
+}
+#bubble-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+#bubble-actions button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 12px;
+  cursor: pointer;
+}
+#bubble-actions button.deny {
+  background: #ece6dc;
+  color: var(--ink);
+}
+#bubble-actions button.allow {
+  background: var(--orange);
+  color: white;
+}
+#bubble-actions button:hover {
+  filter: brightness(0.95);
+}
+#bubble.confirm {
+  cursor: default;
+  min-width: 200px;
+}
+#bubble.confirm #bubble-text {
+  white-space: normal;
+  cursor: default;
+}
+.c-title {
+  font-weight: 600;
+}
+.c-target,
+.c-diff {
+  font: 11px/1.35 Consolas, 'Cascadia Mono', monospace;
+  overflow-wrap: anywhere;
+}
+.c-target {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.c-diff {
+  margin-top: 6px;
+  border-radius: 6px;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.c-diff .del,
+.c-diff .add {
+  padding: 1px 5px;
+}
+.c-diff .del {
+  background: #fbe4e1;
+  color: #8a2b1f;
+}
+.c-diff .add {
+  background: #e2f3e6;
+  color: #1f6b35;
+}
+.c-warn {
+  margin-top: 6px;
+  color: var(--alert);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* the ask input's own little window */
+.ask-page .ui {
+  bottom: 6px;
+}
+#ask {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 250px;
+  margin: 0;
+  padding: 8px 10px;
+}
+#ask .chip {
+  margin-right: 0;
+  flex: none;
+}
+#ask input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--ink);
+}
+#ask input::placeholder {
+  color: var(--muted);
+}
+/* after sending: the question stays, dimmed, with the keys you can press */
+#ask.busy input {
+  color: var(--muted);
+  text-overflow: ellipsis;
+}
+#ask-hint {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+#ask-hint:empty {
+  display: none;
+}
+#ask.confirming #ask-hint {
+  color: var(--orange);
+}
+
+/* paths in answers, each with a small Copy button */
+.path {
+  font: 12px/1.35 Consolas, 'Cascadia Mono', monospace;
+  background: #efe9df;
+  border-radius: 4px;
+  padding: 0 3px;
+  overflow-wrap: anywhere;
+}
+button.copy-inline {
+  border: none;
+  background: none;
+  padding: 0 0 0 4px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--orange);
+  cursor: pointer;
+}
+button.copy-inline:hover {
+  text-decoration: underline;
+}

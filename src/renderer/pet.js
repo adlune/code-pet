@@ -84,12 +84,23 @@ let bubble = null; // { kind, text, project, sessionId, until, prio }
 let panelOpen = false;
 let panelTimer = null;
 
+// Hooks for the optional local AI assistant (assistant.js fills them in; they do nothing without it).
+const extras = {
+  mood: () => null, // 'alert' or 'thinking' while it waits on you or on the model
+  bubbleShown() {},
+  bubbleHidden(_was) {},
+  bubbleExpired(_b) {},
+  bubbleClick: (_b) => true, // false keeps the bubble open
+  panelClosed() {},
+};
+
 // ---------- mood ----------
 function mood() {
   const st = new Set(sessions.map((s) => s.status));
-  if (st.has('waiting')) return 'alert';
+  const extra = extras.mood();
+  if (st.has('waiting') || extra === 'alert') return 'alert';
   if (st.has('working')) return 'working';
-  if (st.has('thinking')) return 'thinking';
+  if (st.has('thinking') || extra === 'thinking') return 'thinking';
   if (Date.now() < happyUntil) return 'happy';
   if (Date.now() - lastEventAt > SLEEP_AFTER_MS) return 'sleep';
   return 'idle';
@@ -341,7 +352,10 @@ function tick() {
   updateMovement(m);
   updateFx(m);
   render(m);
-  if (bubble && Date.now() > bubble.until) hideBubble();
+  if (bubble && Date.now() > bubble.until) {
+    extras.bubbleExpired(bubble);
+    hideBubble();
+  }
 }
 setInterval(tick, 1000 / FPS);
 
@@ -370,12 +384,18 @@ function showBubble(kind, text, project, sessionId) {
   bubbleEl.className = `ui ${kind}`;
   fitUi(bubbleEl);
   if (panelOpen) closePanel();
+  extras.bubbleShown();
 }
 function hideBubble() {
+  const was = bubble;
   bubble = null;
   bubbleEl.className = 'ui hidden';
+  extras.bubbleHidden(was);
 }
-bubbleEl.addEventListener('click', hideBubble);
+bubbleEl.addEventListener('click', () => {
+  if (extras.bubbleClick(bubble) === false) return;
+  hideBubble();
+});
 
 // ---------- session panel ----------
 function ago(ts) {
@@ -426,6 +446,7 @@ function openPanel() {
 function closePanel() {
   panelOpen = false;
   panelEl.className = 'ui hidden';
+  extras.panelClosed();
 }
 
 // ---------- mouse: click-through, drag, click, menu ----------
@@ -513,7 +534,7 @@ canvas.addEventListener('contextmenu', (e) => {
 });
 
 // ---------- events from main ----------
-api.setMetrics({ halfWidth: 8 * S }); // body + arms span grid x 1..16 around the centre
+api.setMetrics({ halfWidth: 8 * S, height: canvas.height }); // body + arms span grid x 1..16 around the centre
 api.onEdges((e) => {
   edges = e;
   fitUi(bubbleEl);

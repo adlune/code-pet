@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, Notification, nativeImage, powerMonitor, session } = require('electron');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { describeTool, summarize, lastAssistantText } = require('./events');
 const petIcon = require('./icon');
+const assistant = require('./assistant'); // optional local AI assistant, off by default
 
 const PORT = Number(process.env.CLAUDE_PET_PORT) || 47321;
 const WIN_W = 300;
@@ -34,6 +35,7 @@ const DEFAULTS = {
   toastDone: true,
   doneToastMinSeconds: 30,
   wander: true,
+  ...assistant.DEFAULTS,
 };
 let settings = { ...DEFAULTS };
 function loadSettings() {
@@ -49,6 +51,7 @@ function setSetting(key, value) {
     fs.writeFileSync(settingsFile(), JSON.stringify(settings, null, 2));
   } catch {}
   send('settings', settings);
+  assistant.onSettingChanged(key);
   refreshTray();
 }
 
@@ -78,6 +81,7 @@ function place(x, y) {
   const edges = { left: Math.max(0, wa.x - x), right: Math.max(0, x + WIN_W - (wa.x + wa.width)) };
   const key = `${edges.left},${edges.right}`;
   if (key !== lastEdges) (lastEdges = key), send('edges', edges);
+  assistant.onPetMoved();
 }
 
 function createWindow(pos = homePosition()) {
@@ -105,6 +109,7 @@ function createWindow(pos = homePosition()) {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
   win.setAlwaysOnTop(true, 'floating');
@@ -215,6 +220,8 @@ function buildMenu() {
   return Menu.buildFromTemplate([
     { label: `Claude Pet · ${active.length} session${active.length === 1 ? '' : 's'}`, enabled: false },
     ...active.map((s) => ({ label: `   ${s.project} — ${s.status}`, enabled: false })),
+    { type: 'separator' },
+    ...assistant.menuItems(check),
     { type: 'separator' },
     check('Speech bubbles', 'bubbles'),
     check('Toast when Claude needs you', 'toastWaiting'),
@@ -384,13 +391,34 @@ function startServer() {
 }
 
 // ---------- lifecycle ----------
+// Our windows only ever show the pet's own pages: no navigating away, no pop-ups, no permissions.
+app.on('web-contents-created', (_e, wc) => {
+  wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+  wc.on('will-navigate', (e) => e.preventDefault());
+});
+
 app.whenReady().then(() => {
   loadSettings();
+  session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+  assistant.setup({
+    getWin: () => win,
+    send,
+    getSettings: () => settings,
+    setSetting,
+    refreshTray,
+    sessions: () => [...sessions.values()].sort((a, b) => b.updated - a.updated),
+    makeIcon,
+    workAreaFor,
+    WIN_W,
+    WIN_H,
+    preload: path.join(__dirname, 'preload.js'),
+  });
   createWindow();
   tray = new Tray(makeIcon());
   tray.on('click', () => tray.popUpContextMenu());
   refreshTray();
   startServer();
+  assistant.start(); // only if you turned it on
 
   screen.on('display-metrics-changed', () => send('fall'));
   screen.on('display-removed', () => (place(homePosition().x, homePosition().y), send('fall')));
@@ -412,3 +440,4 @@ app.on('second-instance', () => {
   send('fall');
 });
 app.on('window-all-closed', () => app.quit());
+app.on('will-quit', () => assistant.stop());

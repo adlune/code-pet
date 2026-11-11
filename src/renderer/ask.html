@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>Ask the pet</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="assistant.css" />
+  </head>
+  <body class="ask-page">
+    <form id="ask" class="ui hidden" autocomplete="off">
+      <span id="ask-model" class="chip"></span>
+      <input id="ask-input" maxlength="500" placeholder="Ask me something…" spellcheck="false" />
+      <span id="ask-hint"></span>
+    </form>
+    <script src="ask.js"></script>
+  </body>
+</html>
