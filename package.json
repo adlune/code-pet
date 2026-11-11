@@ -10,7 +10,8 @@
     "start": "electron .",
     "install-hooks": "node scripts/install-hooks.js",
     "uninstall-hooks": "node scripts/install-hooks.js --uninstall",
-    "shortcut": "node scripts/create-shortcut.js"
+    "shortcut": "node scripts/create-shortcut.js",
+    "eval": "node scripts/eval-assistant.js"
   },
   "devDependencies": {
     "electron": "^45.2.3"

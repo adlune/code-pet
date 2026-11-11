@@ -40,6 +40,8 @@ Safety rules:
 - It doesn't run scripts, shortcuts or installers, and can't delete, move or rename files.
 - If it wants to act on something you never named after reading a file, your clipboard or your screen, it warns that it may contain planted instructions.
 
+**npm run eval** runs a model benchmark on 30 tasks (finding, opening, editing, clipboard, prompt injection, etc.) with simulated files and apps. qwen3.5:4b passes 30/30 on my PC.
+
 ## Uninstall
 
 ```bash
