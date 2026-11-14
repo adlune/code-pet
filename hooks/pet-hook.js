@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Claude Code hook -> Claude Pet bridge.
+// Claude Code hook -> Code Pet bridge.
 // Reads the hook payload from stdin and forwards it to the pet's local server.
 // It must never print anything (some hooks inject stdout into Claude's context)
 // and must never fail or block Claude Code: every path exits 0, fast.
 const http = require('http');
 
-const PORT = Number(process.env.CLAUDE_PET_PORT) || 47321;
+const PORT = Number(process.env.CODE_PET_PORT) || 47321;
 setTimeout(() => process.exit(0), 1500).unref();
 
 let data = '';
@@ -26,7 +26,7 @@ function send() {
       headers: {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(data),
-        'x-claude-pet': '1',
+        'x-code-pet': '1',
       },
     },
     (res) => {

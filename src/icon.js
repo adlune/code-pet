@@ -1,29 +1,15 @@
-// The pet's icon, 16x16 pixels, one per design (the classic pet, the black cat), shared by the tray,
-// toasts and the app/shortcut .ico. rgba(scale) rasterizes it with nearest-neighbor scaling;
-// toIco() packs several sizes into a .ico.
+// The pet's icon, 16x16 pixels, shared by the tray, toasts and the app/shortcut .ico.
+// rgba(scale) rasterizes it with nearest-neighbor scaling; toIco() packs several sizes into a .ico.
 const zlib = require('zlib');
 
 const G = 16;
-const O = [0xd9, 0x77, 0x57]; // body
-const D = [0xb9, 0x58, 0x3c]; // shade
-const K = [0x1f, 0x1a, 0x17]; // eyes
-// [x, y, w, h, color] on the 16x16 grid (rows 3..12, so it sits centered)
-const CLASSIC = [
-  [2, 3, 12, 8, O],
-  [2, 10, 12, 1, D],
-  [0, 6, 2, 2, O],
-  [14, 6, 2, 2, O],
-  [5, 5, 1, 2, K],
-  [10, 5, 1, 2, K],
-  ...[3, 5, 10, 12].map((x) => [x, 11, 1, 2, O]),
-];
-
-// The black cat, as a big face filling the square (same colors as renderer/sprite-cat.js).
+// The black cat, as a big face filling the square (same colors as renderer/sprite.js).
+// [x, y, w, h, color] on the 16x16 grid.
 const CB = [0x3b, 0x3b, 0x3f]; // body
 const CS = [0x2a, 0x2a, 0x2e]; // shade
 const CG = [0x71, 0x71, 0x76]; // gloss
 const CI = [0x55, 0x55, 0x5a]; // inside the ears
-const CY = [0xf2, 0xd0, 0x4b]; // eyes
+const CY = [0xf2, 0xf2, 0xf2]; // eyes
 const CP = [0x14, 0x14, 0x14]; // pupils
 const CN = [0x97, 0x97, 0x9b]; // nose
 const CAT = [
@@ -46,13 +32,11 @@ const CAT = [
   [11, 7, 1, 1, CP],
   [7, 10, 2, 1, CN], // nose
 ];
-const ART = { classic: CLASSIC, cat: CAT };
-
 /** Returns { width, height, rgba } at G*scale pixels square. Pass bgra=true for nativeImage bitmaps. */
-function rgba(scale, bgra = false, design = 'classic') {
+function rgba(scale, bgra = false) {
   const N = G * scale;
   const buf = Buffer.alloc(N * N * 4);
-  for (const [x, y, w, h, [r, g, b]] of ART[design] || CLASSIC)
+  for (const [x, y, w, h, [r, g, b]] of CAT)
     for (let yy = y * scale; yy < (y + h) * scale; yy++)
       for (let xx = x * scale; xx < (x + w) * scale; xx++) {
         const i = (yy * N + xx) * 4;
@@ -121,8 +105,8 @@ function dib({ width: N, rgba: px }) {
 }
 
 /** A .ico at 16, 32, 48, 64 (BMP frames) and 256 px (PNG frame); exact multiples, so it stays crisp. */
-function toIco(scales = [1, 2, 3, 4, 16], design = 'classic') {
-  const imgs = scales.map((s) => (G * s >= 256 ? png(rgba(s, false, design)) : dib(rgba(s, false, design))));
+function toIco(scales = [1, 2, 3, 4, 16]) {
+  const imgs = scales.map((s) => (G * s >= 256 ? png(rgba(s)) : dib(rgba(s))));
   const header = Buffer.alloc(6 + 16 * imgs.length);
   header.writeUInt16LE(1, 2); // type: icon
   header.writeUInt16LE(imgs.length, 4);

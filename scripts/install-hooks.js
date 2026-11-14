@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Adds (or with --uninstall removes) the Claude Pet hooks in ~/.claude/settings.json.
+// Adds (or with --uninstall removes) the Code Pet hooks in ~/.claude/settings.json.
 // Idempotent; backs up the settings file before writing; leaves other hooks untouched.
 const fs = require('fs');
 const os = require('os');
@@ -27,7 +27,7 @@ let settings = {};
 if (fs.existsSync(settingsPath)) {
   const raw = fs.readFileSync(settingsPath, 'utf8');
   settings = raw.trim() ? JSON.parse(raw) : {};
-  const backup = `${settingsPath}.claude-pet-backup`;
+  const backup = `${settingsPath}.code-pet-backup`;
   if (!fs.existsSync(backup)) {
     fs.writeFileSync(backup, raw); // keep the pristine pre-pet copy; never overwrite it
     console.log(`Backed up settings to ${backup}`);
@@ -58,6 +58,6 @@ if (!Object.keys(settings.hooks).length) delete settings.hooks;
 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 console.log(
   uninstall
-    ? 'Removed Claude Pet hooks.'
-    : `Installed Claude Pet hooks for: ${Object.keys(EVENTS).join(', ')}\n  ${command}\nNew Claude Code sessions will talk to the pet.`
+    ? 'Removed Code Pet hooks.'
+    : `Installed Code Pet hooks for: ${Object.keys(EVENTS).join(', ')}\n  ${command}\nNew Claude Code sessions will talk to the pet.`
 );

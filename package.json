@@ -1,8 +1,8 @@
 {
-  "name": "claude-pet",
+  "name": "code-pet",
   "version": "0.1.0",
   "private": true,
-  "description": "A little pixel Claude that lives on your desktop and reacts to your Claude Code sessions.",
+  "description": "A little pixel cat that lives on your desktop and reacts to your Claude Code sessions.",
   "author": "Adrian Lara <contact@adrianlara.dev>",
   "license": "MIT",
   "main": "src/main.js",

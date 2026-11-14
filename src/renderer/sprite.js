@@ -1,202 +1,225 @@
-// Pixel Claude, drawn from rectangles on an 18x13 grid. Tweak shapes, colors and SCALE here.
+// The pet: a black cat drawn from rectangles on an 18x13 grid, through draw(ctx, opts).
+// Monochrome: charcoal and greys, with white for the eyes, the spinner and the laptop's logo.
 //
-// FRONT VIEW                                LAPTOP VIEW (typing; mirrored to put the laptop on the right)
-//   ..................                        ...BBBBBBBBBBBB...  the pet sits 2 rows further back
-//   ...BBBBBBBBBBBB...  body x 3-14, y 3-10   ...BB.BBBB.BBB....  eyes look down at the screen
-//   ...BB.BBBB.BBB....  eyes x 6 / 11         .AABB.BBBB.BBBBAA.
-//   .AABBBBBBBBBBBBAA.  arms x 1-2 / 15-16    ...hhBBBBBBBBBBB..  far hand h taps over the lid's top edge
-//   ...BBBBBBBBBBBB...                        =========HHHsss...  lid back x 0-8 (y 8-12), near hand H on the deck
-//   ....L.L....L.L....  legs x 4,6,11,13      ===.#.===dd...L...  logo # on the lid, deck d angling away
+// The cat (x = grid column): low wide ears over a head rounded on top (x 4-13), white eyes with
+// round pupils at x 6-7 / 10-11 and a small grey nose between them, paws at x 1-2 / 15-16, and a
+// wide base (x 2-15) sitting right on the ground like a loaf, with the tail curling up on the right.
+// It has no feet: walking is the base sliding a little toward where it's going, like a slime.
+// Picked up or falling it rounds out underneath, and while held its eyes are ^^.
 const Sprite = (() => {
-  const SCALE = 4; // screen pixels per grid cell. 5 = a bit bigger, 3 = tiny.
+  const SCALE = 4;
   const GW = 18;
   const GH = 13;
-  const HEAD = 9 * SCALE; // headroom above the sprite for jumps and the status glyph
+  const HEAD = 9 * SCALE;
   const COLORS = {
-    body: '#D97757',
-    shade: '#B9583C',
-    eye: '#1F1A17',
-    lid: '#2B2A2E', // back of the laptop lid
-    lidEdge: '#5E5B64', // its top edge (light enough to outline the laptop on dark desktops)
-    lidSide: '#4A4850', // its right side
-    logo: '#E6E0D6',
-    glow: '#E68D6C', // screen light on the face
-    glowSoft: '#E08264',
-    mug: '#EFE6D8',
-    mugShade: '#CDBFA9',
-    coffee: '#4B2F24',
-    steam: '#D9D0C6',
-    deck: '#6A6770', // keyboard deck
-    deckBack: '#57545D', // its far end, in shadow under the pet's hand
-    base: '#45434B', // deck's front edge
-    glyph: '#D97757',
+    body: '#3B3B3F', // charcoal rather than pure black, so it still shows on dark desktops
+    shade: '#2A2A2E',
+    gloss: '#717176',
+    inner: '#55555A', // inside of the ears
+    nose: '#97979B',
+    eye: '#F2F2F2',
+    pupil: '#141414',
+    lidLine: '#88888D', // closed eyes
+    lid: '#151515', // the laptop: black, with a grey edge and a white logo
+    lidEdge: '#717176',
+    lidSide: '#202020',
+    deck: '#2D2D2D',
+    deckBack: '#252525',
+    base: '#191919',
+    logo: '#F2F2F2',
+    glow: '#4A4A4D', // screen light on the face
+    glowSoft: '#434346',
+    glyph: '#F2F2F2',
+    glyphEdge: '#2A2A2E',
     alert: '#E5484D',
-    zzz: '#8A7F74',
+    zzz: '#8A8A8A',
+    dust: '#8E8E8E',
   };
   const SPIN = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢'];
-  const LAPTOP_FRAMES = 5; // 0 = hidden, 1 = closed on the ground, 2..5 = lid rising
+  const LAPTOP_FRAMES = 5;
 
   const width = GW * SCALE;
   const height = HEAD + GH * SCALE;
 
-  /**
-   * opts: {
-   *   oy: vertical body offset in px (negative = up)
-   *   eyes: 'open' | 'closed' | 'wide' | 'happy'
-   *   look: [dx, dy] eye offset in grid cells
-   *   arms: [left, right] each 'down' | 'up'
-   *   legs: 'stand' | 'walkA' | 'walkB'
-   *   squash: 0 | 1 (breathing: body top drops one row)
-   *   turned: true = laptop view (mirror the canvas to put the laptop on the right)
-   *   laptop: 0..LAPTOP_FRAMES (opening animation; laptop view only)
-   *   hands: [near, far] 0 = lifted, 1 = on the keys (only when the laptop is fully open)
-   *   glyph: { ch, color, size, dx, dy } drawn above the head
-   * }
-   */
+  // It has no feet: the body sits 2 rows lower on the grid, right on the ground.
+  const DROP = 2;
+
+  // opts: oy (bob), eyes (open/closed/wide/happy), look [x, y], arms ([left, right] up/down, or
+  // 'none'), legs (stand/walkA/walkB: the slime walk), squash, turned + laptop (0..5 lid frames),
+  // hands (typing), glyph, held, airborne, and t (frame counter) for the tail and ear twitches.
   function draw(ctx, o) {
     const oy = Math.round(o.oy || 0);
     const top = 3 + (o.squash || 0);
-    const px = (x, y, w, h, color, offY = oy) => {
+    // ground: the grid's own rows (the laptop); cat: the cat's rows, lowered onto the ground
+    const ground = (x, y, w, h, color, offY = oy) => {
       ctx.fillStyle = color;
       ctx.fillRect(x * SCALE, HEAD + y * SCALE + offY, w * SCALE, h * SCALE);
     };
+    const cat = (x, y, w, h, color, offY = oy) => ground(x, y + DROP, w, h, color, offY);
     ctx.clearRect(0, 0, width, height);
-    if (o.turned) drawLaptop(o, px, top);
-    else drawFront(o, px, top);
+    if (o.turned) drawLaptop(o, cat, ground, top);
+    else drawFront(o, cat, top);
 
-    // status glyph (spinner / ! / zzz) above the head
     if (o.glyph) {
-      const gy = top - (o.turned ? lift(o) : 0);
+      const gy = top + DROP - (o.turned ? lift(o) : 0);
       ctx.save();
       ctx.fillStyle = o.glyph.color || COLORS.glyph;
       ctx.font = `${o.glyph.bold ? '800' : '700'} ${o.glyph.size || Math.round(SCALE * 3.6)}px "Segoe UI Symbol", "Segoe UI", sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText(o.glyph.ch, 14.5 * SCALE + (o.glyph.dx || 0), HEAD + gy * SCALE + oy - SCALE + (o.glyph.dy || 0));
+      const gx = 14.5 * SCALE + (o.glyph.dx || 0);
+      const gyPx = HEAD + gy * SCALE + oy - SCALE + (o.glyph.dy || 0);
+      if (!o.glyph.color) {
+        // white glyphs get a dark edge, so they still show on light desktops
+        ctx.strokeStyle = COLORS.glyphEdge;
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(o.glyph.ch, gx, gyPx);
+      }
+      ctx.fillText(o.glyph.ch, gx, gyPx);
       ctx.restore();
     }
   }
 
-  function legs(o, px, xs) {
-    xs.forEach((x, i) => {
-      const short = (o.legs === 'walkA' && i % 2 === 0) || (o.legs === 'walkB' && i % 2 === 1);
-      px(x, 11, 1, short ? 1 : 2, COLORS.body);
-    });
+  // ^ shape, for happy eyes
+  function arc(px, cx, ey, c) {
+    px(cx - 1, ey + 1, 1, 1, c);
+    px(cx, ey, 1, 1, c);
+    px(cx + 1, ey + 1, 1, 1, c);
   }
 
   function drawFront(o, px, top) {
-    legs(o, px, [4, 6, 11, 13]);
-    px(3, top, 12, 11 - top, COLORS.body);
-    px(3, 10, 12, 1, COLORS.shade);
+    const C = COLORS;
+    const t = o.t || 0;
+    // In the air (held or falling) nothing presses its base flat, so it rounds out underneath.
+    const air = !!o.airborne;
+    // Walking like a slime: every other step the base slides half a pixel ahead, toward where it's
+    // going, and the body catches up. It never leans backward.
+    const dir = o.legs && o.legs !== 'stand' && !air ? Math.sign((o.look || [0])[0]) : 0;
+    const lean = o.legs === 'walkA' ? 0.5 * dir : 0;
 
-    if (o.arms !== 'none') {
-      const armY = (a) => (a === 'up' ? top - 1 : 6);
-      const [la, ra] = o.arms || ['down', 'down'];
-      px(1, armY(la), 2, 2, COLORS.body);
-      px(15, armY(ra), 2, 2, COLORS.body);
+    // tail, curling up on the right and slowly swaying
+    const sway = Math.floor(t / 12) % 4;
+    const tip = [17, 17, 16.5, 16.5][sway] - (air ? 1 : 0);
+    const mid = [16, 16.5, 16, 15.5][sway] - (air ? 1 : 0);
+    px(air ? 14 : 15 + lean, 10, 1, 1, C.shade);
+    px(air ? 15 : 16 + lean, 9, 1, 1, C.body);
+    px(mid, 8, 1, 1, C.body);
+    px(tip, 7, 1, 1, C.body);
+    px(tip, 7, 1, 0.5, C.gloss);
+
+    // low, wide ears; the left one flicks every few seconds
+    const flick = t % 170 < 7 ? -0.5 : 0;
+    px(5 + flick, top - 1.5, 1.5, 0.5, C.gloss);
+    px(5, top - 1, 3, 1, C.body);
+    px(5.5, top - 0.5, 1.5, 0.5, C.inner);
+    px(11.5, top - 1.5, 1.5, 0.5, C.body);
+    px(10, top - 1, 3, 1, C.body);
+    px(11, top - 0.5, 1.5, 0.5, C.inner);
+
+    // head and body: rounded on top, spreading at the base (or round underneath, in the air)
+    px(5, top, 8, 1, C.body);
+    px(4, top + 1, 10, 1, C.body);
+    if (air) {
+      px(3, top + 2, 12, 8 - top, C.body);
+      px(4, 10, 10, 1, C.shade);
+    } else {
+      px(3, top + 2, 12, 7 - top, C.body);
+      px(2 + lean, 9, 14, 1, C.body);
+      px(2 + lean, 10, 14, 1, C.shade);
     }
-    if (o.underEyes) o.underEyes(); // e.g. the laptop's screen glow, so it never covers the eyes
+    px(5, top + 1, 2, 1, C.gloss);
+    px(4, top + 2, 1, 1, C.gloss);
+
+    // paws
+    if (o.arms !== 'none') {
+      const [la, ra] = o.arms || ['down', 'down'];
+      const y = (a) => (a === 'up' ? top : 7);
+      px(1, y(la), 2, 1, C.body);
+      px(2, y(la) + 1, 1, 1, C.body);
+      px(15, y(ra), 2, 1, C.body);
+      px(15, y(ra) + 1, 1, 1, C.body);
+    }
+    if (o.underEyes) o.underEyes(); // the laptop screen's glow, under the face
+
+    px(8.5, top + 4, 1, 0.5, C.nose);
 
     const [lx, ly] = o.look || [0, 0];
     const ey = top + 2;
-    const K = COLORS.eye;
-    switch (o.eyes) {
+    const K = C.eye;
+    switch (o.held ? 'happy' : o.eyes) { // picked up: ^^
       case 'closed':
-        px(5 + lx, ey + 1, 2, 1, K);
-        px(11 + lx, ey + 1, 2, 1, K);
-        break;
-      case 'wide':
-        px(5, ey, 2, 2, K);
-        px(11, ey, 2, 2, K);
+        px(6, ey + 1, 2, 0.5, C.lidLine);
+        px(10, ey + 1, 2, 0.5, C.lidLine);
         break;
       case 'happy':
-        for (const cx of [6, 11]) {
-          px(cx - 1, ey + 1, 1, 1, K);
-          px(cx, ey, 1, 1, K);
-          px(cx + 1, ey + 1, 1, 1, K);
-        }
+        arc(px, 6.5, ey, K);
+        arc(px, 10.5, ey, K);
         break;
-      default:
-        px(6 + lx, ey + ly, 1, 2, K);
-        px(11 + lx, ey + ly, 1, 2, K);
+      case 'wide':
+        px(6, ey, 2, 2, K);
+        px(10, ey, 2, 2, K);
+        px(6.5, ey + 0.5, 1, 1, C.pupil);
+        px(10.5, ey + 0.5, 1, 1, C.pupil);
+        break;
+      default: {
+        // round pupils drift toward where it's looking
+        px(6, ey, 2, 2, K);
+        px(10, ey, 2, 2, K);
+        const dx = lx > 0 ? 1 : lx < 0 ? 0 : 0.5;
+        const dy = ly < 0 ? 0 : 1;
+        px(6 + dx, ey + dy, 1, 1, C.pupil);
+        px(10 + dx, ey + dy, 1, 1, C.pupil);
+      }
     }
   }
 
-  // Laptop view: the pet still faces you and sits back a little behind a laptop on its front-left.
-  // You see the back of the lid (with a small logo), the keyboard deck angling away on its right,
-  // one hand on the deck and the other arm bobbing down behind the lid's top edge. The screen
-  // casts a faint glow on the pet's lower face. Optional coffee mug: on the ground, or in hand.
+  // Laptop view: the cat sits back a little behind a black laptop on its
+  // front-left, one paw on the keyboard deck and the other bobbing behind the lid.
   function lift(o) {
     const lp = o.laptop || 0;
-    return lp >= 4 ? 2 : lp >= 2 ? 1 : 0; // rows the body moves up (= further back) as the lid opens
+    return lp >= 4 ? 2 : lp >= 2 ? 1 : 0;
   }
 
-  function drawLaptop(o, px, top) {
-    const L = COLORS;
-    const lidH = Math.min(5, o.laptop || 0); // lid rows, rising from the ground
+  // cat: draws in the cat's rows; px: in the grid's own rows (the laptop sits on the ground)
+  function drawLaptop(o, cat, px, top) {
+    const C = COLORS;
+    const lidH = Math.min(5, o.laptop || 0);
     const typing = lidH === 5;
     const up = lift(o);
     const [hn, hf] = o.hands || [1, 1];
-    const sipping = typing && o.mug === 2;
 
-    // the pet itself: the normal front view, moved back, eyes down on the screen while typing
-    const back = (x, y, w, h, c) => px(x, y - up, w, h, c);
+    const back = (x, y, w, h, c) => cat(x, y - up, w, h, c);
     const [lx] = o.look || [0, 0];
-    const eyes = sipping && o.eyes === 'open' ? 'happy' : o.eyes;
     const glow = () => {
-      // faint light from the screen on the lower face, just above the lid
-      back(3, 9, 6, 1, L.glow);
-      back(4, 8, 4, 1, L.glowSoft);
+      // just above the lid, wherever the face is
+      px(3, 9 - up, 6, 1, C.glow);
+      px(4, 8 - up, 4, 1, C.glowSoft);
     };
-    drawFront({ ...o, eyes, look: [lx, typing && !sipping ? 1 : 0], arms: typing ? 'none' : o.arms, underEyes: typing ? glow : null }, back, top);
+    drawFront({ ...o, look: [lx, typing ? 1 : 0], arms: typing ? 'none' : o.arms, underEyes: typing ? glow : null }, back, top);
 
     if (typing) {
-      // far arm bobs down toward the keys, stopping just above the lid's edge
-      back(1, 7 + hf, 2, 2, L.body);
-      if (!sipping) back(15, 6, 2, 2, L.body); // near arm (its hand is on the deck)
+      px(1, 7 + hf - up, 2, 2, C.body); // far paw bobbing just behind the lid's edge
+      back(15, 6, 2, 2, C.body);
     }
 
-    // laptop on the ground; it doesn't bob with the body
     const lidTop = 13 - lidH;
     if (lidH >= 3) {
-      // keyboard deck, running back toward the pet on the right of the lid
-      px(9, 10, 3, 1, L.deckBack, 0);
-      px(9, 11, 4, 1, L.deck, 0);
-      px(9, 12, 3, 1, L.base, 0);
+      px(9, 10, 3, 1, C.deckBack, 0);
+      px(9, 11, 4, 1, C.deck, 0);
+      px(9, 12, 3, 1, C.base, 0);
     }
-    px(0, lidTop, 9, lidH, L.lid, 0); // back of the lid
-    px(0, lidTop, 9, 1, L.lidEdge, 0); // top edge
-    if (lidH > 1) px(8, lidTop + 1, 1, lidH - 1, L.lidSide, 0); // right side
+    px(0, lidTop, 9, lidH, C.lid, 0);
+    px(0, lidTop, 9, 1, C.lidEdge, 0);
+    if (lidH > 1) px(8, lidTop + 1, 1, lidH - 1, C.lidSide, 0);
     if (lidH === 5) {
-      // a small logo on the lid, in half-size pixels so it stays delicate
-      for (const [x, y] of [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]]) px(3.75 + x / 2, 9.75 + y / 2, 0.5, 0.5, L.logo, 0);
+      // a tiny white cat face on the lid, in half-size pixels
+      for (const [x, y] of [[0, 0], [2, 0], [0, 1], [1, 1], [2, 1], [1, 2]]) px(3.75 + x / 2, 9.75 + y / 2, 0.5, 0.5, C.logo, 0);
     }
 
-    if (typing && !sipping) {
-      // near hand on the keyboard deck, lifting a row between keystrokes
-      px(9, 9 + hn, 3, 1, L.shade, 0);
-      px(9, 8 + hn, 3, 1, L.body, 0);
-    }
-
-    // coffee: 1 = on the ground beside the laptop, 2 = held up in the near hand for a sip
-    if (lidH >= 3 && o.mug === 1) mug(px, 15, 10, 0, o.steam, true);
-    if (sipping) {
-      mug(px, 16, 4 - up, undefined, o.steam, false); // held out at the side
-      back(15, 7, 1, 2, L.body); // the hand holding it (covers the handle)
-    }
-  }
-
-  // 2x3 mug with a little steam; offY 0 = on the ground (doesn't bob)
-  function mug(px, x, y, offY, steam = 0, handle = true) {
-    const L = COLORS;
-    px(x, y, 2, 1, L.coffee, offY);
-    px(x, y + 1, 2, 2, L.mug, offY);
-    px(x, y + 2, 2, 1, L.mugShade, offY);
-    if (handle) px(x + 2, y + 1, 1, 1, L.mug, offY);
-    // two wisps rising and swaying, in half-size pixels
-    for (const k of [0, 3]) {
-      const p = (Math.floor(steam / 5) + k) % 6;
-      const sway = [0, 0.5, 0.5, 0, -0.5, -0.5][p];
-      px(x + 0.5 + sway, y - 0.5 - p * 0.5, 0.5, 0.5, L.steam, offY);
+    if (typing) {
+      // near paw on the deck, lifting between keystrokes
+      px(9, 9 + hn, 3, 1, C.shade, 0);
+      px(9, 8 + hn, 3, 1, C.body, 0);
     }
   }
 

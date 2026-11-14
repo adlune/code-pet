@@ -6,7 +6,7 @@ const { describeTool, summarize, lastAssistantText } = require('./events');
 const petIcon = require('./icon');
 const assistant = require('./assistant'); // optional local AI assistant, off by default
 
-const PORT = Number(process.env.CLAUDE_PET_PORT) || 47321;
+const PORT = Number(process.env.CODE_PET_PORT) || 47321;
 const WIN_W = 300;
 const WIN_H = 300;
 const FOOT_PAD = 16; // transparent strip below the pet's feet (must match renderer/pet.js)
@@ -20,7 +20,7 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0);
 }
 if (!app.isPackaged) app.setAppUserModelId(process.execPath);
-else app.setAppUserModelId('com.claude-pet.app');
+else app.setAppUserModelId('com.code-pet.app');
 
 let win = null;
 let tray = null;
@@ -35,7 +35,6 @@ const DEFAULTS = {
   toastDone: true,
   doneToastMinSeconds: 30,
   wander: true,
-  design: 'cat', // 'cat' (black cat) or 'classic' (the original orange pet)
   ...assistant.DEFAULTS,
 };
 let settings = { ...DEFAULTS };
@@ -53,7 +52,6 @@ function setSetting(key, value) {
   } catch {}
   send('settings', settings);
   assistant.onSettingChanged(key);
-  if (key === 'design') refreshIcons();
   refreshTray();
 }
 
@@ -205,14 +203,9 @@ ipcMain.on('show-menu', () => {
 
 // ---------- tray ----------
 function makeIcon(scale = 2) {
-  // the 16x16 mini pet from icon.js in the current design, drawn at `scale`x (2 = crisp on high-DPI trays)
-  const { width, height, rgba } = petIcon.rgba(scale, true, settings.design);
+  // the 16x16 mini pet from icon.js, drawn at `scale`x (2 = crisp on high-DPI trays)
+  const { width, height, rgba } = petIcon.rgba(scale, true);
   return nativeImage.createFromBitmap(rgba, { width, height, scaleFactor: scale });
-}
-// the design changed: the tray and window icons follow it
-function refreshIcons() {
-  if (tray) tray.setImage(makeIcon());
-  for (const w of BrowserWindow.getAllWindows()) w.setIcon(makeIcon(4));
 }
 
 function buildMenu() {
@@ -225,7 +218,7 @@ function buildMenu() {
   });
   const login = app.getLoginItemSettings(loginArgs());
   return Menu.buildFromTemplate([
-    { label: `Claude Pet · ${active.length} session${active.length === 1 ? '' : 's'}`, enabled: false },
+    { label: `Code Pet · ${active.length} session${active.length === 1 ? '' : 's'}`, enabled: false },
     ...active.map((s) => ({ label: `   ${s.project} — ${s.status}`, enabled: false })),
     { type: 'separator' },
     ...assistant.menuItems(check),
@@ -234,13 +227,6 @@ function buildMenu() {
     check('Toast when Claude needs you', 'toastWaiting'),
     check(`Toast when a turn finishes (> ${settings.doneToastMinSeconds}s)`, 'toastDone'),
     check('Wander around when idle', 'wander'),
-    {
-      label: 'Pet design',
-      submenu: [
-        ['Black cat', 'cat'],
-        ['Classic', 'classic'],
-      ].map(([label, id]) => ({ label, type: 'radio', checked: settings.design === id, click: () => setSetting('design', id) })),
-    },
     {
       label: 'Start with Windows',
       type: 'checkbox',
@@ -262,7 +248,7 @@ function refreshTray() {
   if (!tray) return;
   tray.setContextMenu(buildMenu());
   const waiting = [...sessions.values()].filter((s) => s.status === 'waiting').length;
-  tray.setToolTip(waiting ? `Claude Pet — ${waiting} waiting for you` : 'Claude Pet');
+  tray.setToolTip(waiting ? `Code Pet — ${waiting} waiting for you` : 'Code Pet');
 }
 
 // ---------- sessions & events ----------
@@ -379,7 +365,7 @@ function startServer() {
       return res.end(JSON.stringify({ ok: true, sessions: sessions.size }));
     }
     // Only accept requests from our hook script: custom header, no browser Origin.
-    if (req.method !== 'POST' || req.url !== '/event' || req.headers['x-claude-pet'] !== '1' || req.headers.origin) {
+    if (req.method !== 'POST' || req.url !== '/event' || req.headers['x-code-pet'] !== '1' || req.headers.origin) {
       res.writeHead(404);
       return res.end();
     }

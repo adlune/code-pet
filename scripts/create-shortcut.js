@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Creates "Claude Pet" shortcuts on the Desktop and in the Start Menu that launch the pet
+// Creates "Code Pet" shortcuts on the Desktop and in the Start Menu that launch the pet
 // directly through electron.exe.
 // Usage: npm run shortcut            (create)
 //        npm run shortcut -- --remove (delete them again)
@@ -21,7 +21,7 @@ if (!remove && !fs.existsSync(electronExe)) {
   process.exit(1);
 }
 
-// the pixel Claude icon, generated from src/icon.js
+// the pixel cat icon, generated from src/icon.js
 const iconPath = path.join(root, 'assets', 'icon.ico');
 if (!remove) {
   fs.mkdirSync(path.dirname(iconPath), { recursive: true });
@@ -33,7 +33,7 @@ const ps = `
 $ErrorActionPreference = 'Stop'
 $dirs = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))
 foreach ($d in $dirs) {
-  $lnk = Join-Path $d 'Claude Pet.lnk'
+  $lnk = Join-Path $d 'Code Pet.lnk'
   if ($env:PET_REMOVE -eq '1') {
     if (Test-Path $lnk) { Remove-Item $lnk; Write-Output "removed  $lnk" }
     continue
@@ -43,7 +43,7 @@ foreach ($d in $dirs) {
   $s.Arguments = '"' + $env:PET_ROOT + '"'
   $s.WorkingDirectory = $env:PET_ROOT
   $s.IconLocation = $env:PET_ICON + ',0'
-  $s.Description = 'Claude Pet'
+  $s.Description = 'Code Pet'
   $s.Save()
   Write-Output "created  $lnk"
 }
