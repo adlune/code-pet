@@ -35,6 +35,7 @@ const DEFAULTS = {
   toastDone: true,
   doneToastMinSeconds: 30,
   wander: true,
+  design: 'cat', // 'cat' (black cat) or 'classic' (the original orange pet)
   ...assistant.DEFAULTS,
 };
 let settings = { ...DEFAULTS };
@@ -52,6 +53,7 @@ function setSetting(key, value) {
   } catch {}
   send('settings', settings);
   assistant.onSettingChanged(key);
+  if (key === 'design') refreshIcons();
   refreshTray();
 }
 
@@ -203,9 +205,14 @@ ipcMain.on('show-menu', () => {
 
 // ---------- tray ----------
 function makeIcon(scale = 2) {
-  // the 16x16 mini pet from icon.js, drawn at `scale`x (2 = crisp on high-DPI trays)
-  const { width, height, rgba } = petIcon.rgba(scale, true);
+  // the 16x16 mini pet from icon.js in the current design, drawn at `scale`x (2 = crisp on high-DPI trays)
+  const { width, height, rgba } = petIcon.rgba(scale, true, settings.design);
   return nativeImage.createFromBitmap(rgba, { width, height, scaleFactor: scale });
+}
+// the design changed: the tray and window icons follow it
+function refreshIcons() {
+  if (tray) tray.setImage(makeIcon());
+  for (const w of BrowserWindow.getAllWindows()) w.setIcon(makeIcon(4));
 }
 
 function buildMenu() {
@@ -227,6 +234,13 @@ function buildMenu() {
     check('Toast when Claude needs you', 'toastWaiting'),
     check(`Toast when a turn finishes (> ${settings.doneToastMinSeconds}s)`, 'toastDone'),
     check('Wander around when idle', 'wander'),
+    {
+      label: 'Pet design',
+      submenu: [
+        ['Black cat', 'cat'],
+        ['Classic', 'classic'],
+      ].map(([label, id]) => ({ label, type: 'radio', checked: settings.design === id, click: () => setSetting('design', id) })),
+    },
     {
       label: 'Start with Windows',
       type: 'checkbox',

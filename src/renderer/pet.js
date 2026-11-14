@@ -15,6 +15,10 @@ const off = document.createElement('canvas');
 off.width = Sprite.width;
 off.height = Sprite.height;
 const octx = off.getContext('2d');
+// The design being drawn (tray → Pet design): the black cat or the classic pet. Both share the
+// same grid and size, so only drawing, colors and glyphs change.
+const DESIGNS = { cat: CatSprite, classic: Sprite };
+let sprite = CatSprite;
 canvas.width = Sprite.width + 2 * MARGIN;
 canvas.height = Sprite.height + FOOT_PAD;
 ctx.imageSmoothingEnabled = false;
@@ -210,7 +214,7 @@ function updateFx(m) {
   // laptop opens while working, lingers briefly, folds away when interrupted
   if (m === 'working' && action === 'idle') laptopHoldUntil = t + 45;
   const calm = action === 'idle' && (m === 'working' || m === 'thinking' || m === 'idle');
-  const want = calm && t < laptopHoldUntil ? Sprite.LAPTOP_FRAMES : 0;
+  const want = calm && t < laptopHoldUntil ? sprite.LAPTOP_FRAMES : 0;
   const before = laptop;
   if (action === 'drag' || action === 'fall') laptop = 0;
   else if (t % 2 === 0 && laptop !== want) laptop += Math.sign(want - laptop);
@@ -235,17 +239,20 @@ function updateFx(m) {
 
 // ---------- pose for this frame ----------
 function pose(m) {
-  // with the laptop out, a coffee mug sits beside it (mug: 1 = on the ground, 2 = in hand)
-  const o = { oy: 0, eyes: 'open', look: [0, 0], arms: ['down', 'down'], legs: 'stand', squash: 0, glyph: null, laptop, turned: laptop > 0, mug: 1, steam: t };
+  // with the laptop out, the classic pet has a coffee mug beside it (mug: 1 = on the ground, 2 = in hand)
+  const o = { oy: 0, eyes: 'open', look: [0, 0], arms: ['down', 'down'], legs: 'stand', squash: 0, glyph: null, laptop, turned: laptop > 0, mug: 1, steam: t, t };
   const step = (n) => Math.floor(t / n);
 
   if (action === 'drag') {
     o.eyes = Math.abs(dragVx) > 14 ? 'closed' : 'wide'; // eyes squeezed shut when swung hard
     o.arms = ['up', 'up'];
     o.legs = step(2) % 2 ? 'walkA' : 'walkB'; // kicking
+    o.held = true; // designs may show this their own way (the cat: ^^ eyes, round bottom)
+    o.airborne = true;
     return o;
   }
   if (action === 'fall') {
+    o.airborne = true;
     o.eyes = 'wide';
     o.arms = ['up', 'up'];
     o.legs = step(3) % 2 ? 'walkA' : 'walkB';
@@ -270,7 +277,7 @@ function pose(m) {
       o.oy = air ? -Math.round(Math.sin((p / 11) * Math.PI) * S * 2.7) : 0;
       o.eyes = 'wide';
       o.arms = air ? ['up', 'up'] : ['down', 'down'];
-      o.glyph = { ch: '!', color: Sprite.COLORS.alert, bold: true, size: Math.round(S * 4.5) };
+      o.glyph = { ch: '!', color: sprite.COLORS.alert, bold: true, size: Math.round(S * 4.5) };
       break;
     }
     case 'working': {
@@ -279,13 +286,13 @@ function pose(m) {
       o.hands = burst ? (step(2) % 2 ? [0, 1] : [1, 0]) : [1, 1];
       if (!burst) o.squash = 1; // leans back a little while reading
       if (!burst && step(90) % 2) o.mug = 2; // every other pause: a sip of coffee
-      o.glyph = { ch: Sprite.SPIN[step(3) % Sprite.SPIN.length] };
+      o.glyph = { ch: sprite.SPIN[step(3) % sprite.SPIN.length] };
       break;
     }
     case 'thinking':
       o.look = [(step(36) % 3) - 1, -1];
       o.squash = step(24) % 2;
-      o.glyph = { ch: Sprite.SPIN[step(4) % Sprite.SPIN.length] };
+      o.glyph = { ch: sprite.SPIN[step(4) % sprite.SPIN.length] };
       break;
     case 'happy': {
       const p = t % 16;
@@ -299,7 +306,7 @@ function pose(m) {
       o.eyes = 'closed';
       o.squash = step(45) % 2;
       const p = t % 60;
-      o.glyph = { ch: p < 30 ? 'z' : 'Z', color: Sprite.COLORS.zzz, size: Math.round(S * 2.6) + Math.floor(p / 15), dy: -Math.floor(p / 4), dx: Math.floor(p / 8) };
+      o.glyph = { ch: p < 30 ? 'z' : 'Z', color: sprite.COLORS.zzz, size: Math.round(S * 2.6) + Math.floor(p / 15), dy: -Math.floor(p / 4), dx: Math.floor(p / 8) };
       break;
     }
     default:
@@ -316,7 +323,7 @@ function pose(m) {
 // ---------- render ----------
 function render(m) {
   const o = pose(m);
-  Sprite.draw(octx, o);
+  sprite.draw(octx, o);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const sy = stretch.v;
@@ -340,7 +347,7 @@ function render(m) {
 
   for (const p of dust) {
     ctx.globalAlpha = Math.min(1, p.life / 8) * 0.8;
-    ctx.fillStyle = '#B8AEA3';
+    ctx.fillStyle = sprite.COLORS.dust || '#B8AEA3';
     ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
   }
   ctx.globalAlpha = 1;
@@ -540,7 +547,10 @@ api.onEdges((e) => {
   fitUi(bubbleEl);
   fitUi(panelEl);
 });
-api.onSettings((s) => (settings = s));
+api.onSettings((s) => {
+  settings = s;
+  sprite = DESIGNS[s.design] || CatSprite;
+});
 api.onFall(() => {
   if (action !== 'drag') (action = 'fall'), (vx = 0), (vy = 0);
 });

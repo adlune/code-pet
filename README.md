@@ -1,8 +1,10 @@
-<p align="center"><img src="attachments/pet.gif" alt="claude pet typing on its laptop, then hopping happily" width="250"></p>
+<p align="center"><img src="attachments/cat.gif" alt="the black cat typing on its laptop, then hopping happily" width="250"> <img src="attachments/pet.gif" alt="the classic pet typing on its laptop, then hopping happily" width="250"></p>
 
 # code-pet
 
 A simple desktop pet built using Electron. It notifies when the session stops, needs approval, background tasks, active sessions, etc. Built for Claude Code.
+
+It comes in two designs, a black cat and the classic orange pet. Switch between them under **Pet design** in the tray menu.
 
 
 ## Setup
